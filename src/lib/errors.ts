@@ -48,6 +48,20 @@ export class GoogleApiError extends AppError {
   }
 }
 
+/**
+ * API Google yang dibutuhkan belum diaktifkan di project Google Cloud aplikasi.
+ * Ini kesalahan konfigurasi milik pengelola aplikasi, bukan milik pengguna.
+ */
+export class GoogleApiDisabledError extends AppError {
+  constructor(apiName: string, detail: string) {
+    super(
+      `${apiName} is disabled for this Google Cloud project: ${detail}`,
+      503,
+      `Layanan ${apiName} belum diaktifkan untuk aplikasi ini. Pengelola aplikasi perlu mengaktifkannya di Google Cloud Console (APIs & Services → Library), lalu coba lagi dalam beberapa menit.`,
+    )
+  }
+}
+
 /** Refresh token tidak ada / dicabut pemilik toko (invalid_grant). */
 export class GoogleAccessRevokedError extends AppError {
   constructor() {

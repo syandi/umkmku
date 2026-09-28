@@ -11,8 +11,13 @@ import type { CatalogCache } from '../services/ports'
 export class EdgeCatalogCache implements CatalogCache {
   constructor(
     private readonly ttlSeconds = 60,
-    private readonly cache: Cache = caches.default,
+    /** Di-resolve saat dipakai, karena instance ini dibuat di global scope Worker. */
+    private readonly resolveCache: () => Cache = () => caches.default,
   ) {}
+
+  private get cache(): Cache {
+    return this.resolveCache()
+  }
 
   async get(storeId: string): Promise<Product[] | null> {
     const response = await this.cache.match(this.key(storeId))

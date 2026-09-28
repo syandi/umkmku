@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { GoogleIdentity, User } from '../src/domain/user'
 import { DRIVE_FILE_SCOPE, type GoogleTokens } from '../src/infra/google/oauth'
-import { ForbiddenError, ValidationError } from '../src/lib/errors'
+import { ValidationError } from '../src/lib/errors'
 import { AuthService } from '../src/services/auth-service'
 import type { SessionRepository, UserRepository } from '../src/services/ports'
 import { FakeTokens } from './fakes'
@@ -73,11 +73,11 @@ describe('AuthService', () => {
     ).rejects.toThrow(ValidationError)
   })
 
-  it('menolak bila izin Drive tidak diberikan', async () => {
-    const { service } = setup({ scopes: ['openid', 'email'] })
-    await expect(
-      service.completeLogin({ code: 'c', state: 's', transaction: { state: 's', codeVerifier: 'v' } }),
-    ).rejects.toThrow(ForbiddenError)
+  it('meminta izin Drive bila tidak dicentang, tanpa membuat sesi/menyimpan user', async () => {
+    const { service, saved } = setup({ scopes: ['openid', 'email'] })
+    const result = await service.completeLogin({ code: 'c', state: 's', transaction: { state: 's', codeVerifier: 'v' } })
+    expect(result).toEqual({ kind: 'drive_permission_required' })
+    expect(saved).toEqual([])
   })
 
   it('meminta consent ulang bila tidak ada refresh token sama sekali', async () => {

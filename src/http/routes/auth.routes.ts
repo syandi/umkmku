@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia'
 import type { AppContainer } from '../../container'
+import { drivePermissionPage } from '../../views/auth'
 import { errorPage } from '../../views/error'
 import type { CookieJar } from '../cookies'
 import { htmlResponse, redirectResponse } from '../responses'
@@ -32,8 +33,11 @@ export function authRoutes({ auth }: AppContainer, cookies: CookieJar) {
           transaction: cookies.readLoginTransaction(request),
         })
 
-        if (result.kind === 'consent_required') {
-          return redirectResponse('/auth/google?consent=1', { cookies: [clearTransaction] })
+        switch (result.kind) {
+          case 'consent_required':
+            return redirectResponse('/auth/google?consent=1', { cookies: [clearTransaction] })
+          case 'drive_permission_required':
+            return htmlResponse(drivePermissionPage(), { status: 403, cookies: [clearTransaction] })
         }
         return redirectResponse('/dashboard', { cookies: [clearTransaction, cookies.session(result.sessionToken)] })
       },

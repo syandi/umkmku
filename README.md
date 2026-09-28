@@ -27,7 +27,7 @@ Isi produk di Google Sheets                          ▼
 
 ```
 src/
-├── index.ts            Entry Worker (lazy bootstrap)
+├── index.ts            Entry Worker (app dirangkai di top-level, lihat catatan di file)
 ├── app.ts              Rakit Elysia: error handler + routes
 ├── container.ts        Composition root (satu-satunya tempat `new` implementasi konkret)
 ├── config.ts           Baca & validasi env (fail-fast)
@@ -89,6 +89,8 @@ bun run dev                       # http://localhost:8787
 
 ### 3. Deploy
 
+Konfigurasi divalidasi saat Worker startup, jadi **set semua secret sebelum deploy pertama** (`wrangler secret put` otomatis membuat Worker bila belum ada).
+
 ```bash
 # Ganti APP_URL di wrangler.jsonc ke URL produksi (tanpa garis miring di akhir)
 bunx wrangler secret put GOOGLE_CLIENT_ID
@@ -123,6 +125,17 @@ Spreadsheet dibuat otomatis saat toko dibuat, berisi dua sheet:
 - `Stok` kosong = tidak dibatasi; `0` = habis.
 
 **Pesanan** — diisi otomatis setiap checkout: Waktu (WIB), Nama, Alamat, Catatan, Item, Total.
+
+## Catatan: Elysia di Cloudflare Workers
+
+Elysia membuat kode lewat `new Function` saat `.compile()`. Workers hanya mengizinkan ini selama **fase startup**
+(flag `allow_eval_during_startup`, default sejak `compatibility_date` 2025-06-01). Karena itu:
+
+- App dirangkai dan di-`compile()` di top-level `src/index.ts`, bukan di dalam `fetch()`.
+- `compatibility_date` di `wrangler.jsonc` **jangan** diturunkan di bawah `2025-06-01`.
+- Jangan membuat instance `new Elysia()` atau route baru saat request.
+
+Bila muncul `Code generation from strings disallowed for this context`, salah satu aturan di atas dilanggar.
 
 ## Keputusan desain & keamanan
 

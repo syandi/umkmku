@@ -1,5 +1,5 @@
 import { PRODUCT_COLUMNS, PRODUCT_DATA_RANGE, PRODUCT_SHEET_NAME } from '../../domain/product'
-import { GoogleApiError, SpreadsheetUnavailableError } from '../../lib/errors'
+import { GoogleApiDisabledError, GoogleApiError, SpreadsheetUnavailableError } from '../../lib/errors'
 import type { SheetCell, StoreSpreadsheetGateway } from '../../services/ports'
 import { defaultFetch, readJson, type FetchFn } from '../http'
 
@@ -25,7 +25,9 @@ export class GoogleSheetsGateway implements StoreSpreadsheetGateway {
     const data = await this.request(accessToken, SHEETS_API, {
       method: 'POST',
       body: JSON.stringify({
-        properties: { title, locale: 'id_ID', timeZone: 'Asia/Jakarta' },
+        // Sengaja tanpa `locale`: API menolak kode yang tidak dikenalnya (mis. "id_ID"), dan
+        // aplikasi tidak bergantung pada locale karena membaca UNFORMATTED_VALUE & menulis RAW.
+        properties: { title, timeZone: 'Asia/Jakarta' },
         sheets: [
           sheetWithRows(PRODUCT_SHEET_NAME, [PRODUCT_COLUMNS, ...SAMPLE_PRODUCTS]),
           sheetWithRows(ORDER_SHEET_NAME, [ORDER_COLUMNS]),
@@ -67,12 +69,44 @@ export class GoogleSheetsGateway implements StoreSpreadsheetGateway {
     const data = await readJson(response)
 
     if (response.ok) return data
+
+    const error = parseGoogleError(data)
+    // Dicek lebih dulu: 403 karena API nonaktif bukan berarti spreadsheet hilang.
+    if (error.reasons.has('SERVICE_DISABLED') || error.reasons.has('accessNotConfigured')) {
+      throw new GoogleApiDisabledError('Google Sheets API', error.message)
+    }
     // 404: file dihapus. 403: dengan scope drive.file, file tidak lagi bisa diakses aplikasi.
     if (spreadsheetId && (response.status === 404 || response.status === 403)) {
       throw new SpreadsheetUnavailableError(spreadsheetId)
     }
-    const error = data.error as { message?: unknown } | undefined
-    throw new GoogleApiError(response.status, String(error?.message ?? response.statusText))
+    throw new GoogleApiError(response.status, `${error.status}: ${error.message}`)
+  }
+}
+
+interface GoogleErrorInfo {
+  readonly message: string
+  readonly status: string
+  readonly reasons: ReadonlySet<string>
+}
+
+/**
+ * Format error Google API:
+ * { error: { code, message, status, errors?: [{ reason }], details?: [{ reason }] } }
+ */
+function parseGoogleError(data: Record<string, unknown>): GoogleErrorInfo {
+  const error = (data.error ?? {}) as Record<string, unknown>
+  const reasons = new Set<string>()
+  for (const list of [error.errors, error.details]) {
+    if (!Array.isArray(list)) continue
+    for (const item of list) {
+      const reason = (item as Record<string, unknown> | null)?.reason
+      if (typeof reason === 'string') reasons.add(reason)
+    }
+  }
+  return {
+    message: typeof error.message === 'string' ? error.message : 'unknown error',
+    status: typeof error.status === 'string' ? error.status : 'UNKNOWN',
+    reasons,
   }
 }
 

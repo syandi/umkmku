@@ -53,19 +53,24 @@ const CIPHER_VERSION = 'v1'
  * Format: `v1.<iv>.<ciphertext>` — prefix versi memudahkan rotasi kunci di masa depan.
  */
 export class TokenCipher {
-  private readonly key: Promise<CryptoKey>
+  private readonly rawKey: Uint8Array<ArrayBuffer>
+  /**
+   * Diimpor saat pertama dipakai (bukan di constructor) karena instance dibuat di
+   * global scope Worker. Yang di-cache adalah CryptoKey-nya, bukan Promise, agar tidak
+   * ada Promise yang dibagi antar request.
+   */
+  private key: CryptoKey | undefined
 
   constructor(base64Key: string) {
-    const raw = base64ToBytes(base64Key)
-    if (raw.length !== 32) {
+    this.rawKey = base64ToBytes(base64Key)
+    if (this.rawKey.length !== 32) {
       throw new Error('TOKEN_ENCRYPTION_KEY harus 32 byte dalam base64 (openssl rand -base64 32)')
     }
-    this.key = crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
   }
 
   async encrypt(plaintext: string): Promise<string> {
     const iv = crypto.getRandomValues(new Uint8Array(12))
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.key, encoder.encode(plaintext))
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.getKey(), encoder.encode(plaintext))
     return [CIPHER_VERSION, bytesToBase64Url(iv), bytesToBase64Url(new Uint8Array(ciphertext))].join('.')
   }
 
@@ -76,9 +81,14 @@ export class TokenCipher {
     }
     const plaintext = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: base64UrlToBytes(iv) },
-      await this.key,
+      await this.getKey(),
       base64UrlToBytes(ciphertext),
     )
     return decoder.decode(plaintext)
+  }
+
+  private async getKey(): Promise<CryptoKey> {
+    this.key ??= await crypto.subtle.importKey('raw', this.rawKey, 'AES-GCM', false, ['encrypt', 'decrypt'])
+    return this.key
   }
 }

@@ -12,7 +12,9 @@ import { homePage } from './views/home'
 export function createApp(container: AppContainer) {
   const cookies = createCookieJar(container.config)
 
-  return new Elysia({ adapter: CloudflareAdapter })
+  // precompile: validator schema & handler dibuat sekarang (fase startup Worker),
+  // bukan lazily saat request pertama — lihat catatan di src/index.ts.
+  return new Elysia({ adapter: CloudflareAdapter, precompile: true })
     .onError({ as: 'global' }, ({ code, error }) => handleError(code, error))
     .get('/', async ({ request, query }) => {
       const user = await container.auth.getUserBySession(cookies.readSession(request))
