@@ -2,6 +2,7 @@
  * Kontrak (port) yang dibutuhkan service. Implementasi konkret ada di src/infra.
  * Service hanya bergantung pada interface ini sehingga mudah diuji dengan fake.
  */
+import type { OpeningHours } from '../domain/opening-hours'
 import type { Product } from '../domain/product'
 import type { Store, StoreInput } from '../domain/store'
 import type { GoogleIdentity, User } from '../domain/user'
@@ -26,6 +27,7 @@ export interface StoreRepository {
   create(data: StoreInput & { ownerId: string; spreadsheetId: string }): Promise<Store>
   update(storeId: string, data: StoreInput): Promise<Store>
   updateSpreadsheet(storeId: string, spreadsheetId: string): Promise<void>
+  updateOpeningHours(storeId: string, hours: OpeningHours): Promise<void>
 }
 
 export interface CatalogCache {

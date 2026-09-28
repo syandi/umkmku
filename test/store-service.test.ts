@@ -75,6 +75,29 @@ describe('StoreService', () => {
     ).resolves.toContain('https://wa.me/')
   })
 
+  it('menolak checkout saat toko tutup dan menyebut kapan buka lagi', async () => {
+    const store = await service.saveStore(owner, input)
+    sheets.rows = [['A', 'Keripik', 10000]]
+    // Waktu uji: Senin 09:00 WIB. Toko buka Senin 10:00–17:00.
+    await stores.updateOpeningHours(store.id, {
+      timezone: 'Asia/Jakarta',
+      days: [null, { open: '10:00', close: '17:00' }, null, null, null, null, null],
+    })
+
+    const attempt = service.checkout('dapur-sari', { cart: JSON.stringify([{ productId: 'A', quantity: 1 }]), name: 'Budi' })
+    await expect(attempt).rejects.toThrow(ValidationError)
+    await expect(attempt).rejects.toThrow(/sedang tutup.*hari ini pukul 10:00 WIB/)
+    expect(sheets.appended).toEqual([])
+  })
+
+  it('menyimpan jam operasional dari input form', async () => {
+    await service.saveStore(owner, input)
+    await service.updateOpeningHours(owner, { timezone: 'Asia/Jakarta', open_1: '1', start_1: '08:00', end_1: '10:00' })
+    const store = await stores.findByOwner(owner.id)
+    expect(store?.openingHours?.days[1]).toEqual({ open: '08:00', close: '10:00' })
+    expect(service.getOpenStatus(store!)).toEqual({ isOpen: true, closesAt: '10:00' })
+  })
+
   it('katalog memakai cache kecuali diminta fresh', async () => {
     const store = await service.saveStore(owner, input)
     sheets.rows = [['A', 'Lama', 1000]]

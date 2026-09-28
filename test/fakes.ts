@@ -1,3 +1,4 @@
+import type { OpeningHours } from '../src/domain/opening-hours'
 import type { Product } from '../src/domain/product'
 import type { Store, StoreInput } from '../src/domain/store'
 import type {
@@ -18,7 +19,7 @@ export class InMemoryStoreRepository implements StoreRepository {
     return [...this.stores.values()].find((s) => s.slug === slug) ?? null
   }
   async create(data: StoreInput & { ownerId: string; spreadsheetId: string }) {
-    const store: Store = { id: `store-${this.stores.size + 1}`, createdAt: 0, updatedAt: 0, ...data }
+    const store: Store = { id: `store-${this.stores.size + 1}`, openingHours: null, createdAt: 0, updatedAt: 0, ...data }
     this.stores.set(store.id, store)
     return store
   }
@@ -29,6 +30,9 @@ export class InMemoryStoreRepository implements StoreRepository {
   }
   async updateSpreadsheet(storeId: string, spreadsheetId: string) {
     this.stores.set(storeId, { ...this.stores.get(storeId)!, spreadsheetId })
+  }
+  async updateOpeningHours(storeId: string, openingHours: OpeningHours) {
+    this.stores.set(storeId, { ...this.stores.get(storeId)!, openingHours })
   }
 }
 

@@ -36,6 +36,8 @@
 
   /** @type {Record<string, number>} */
   let cart = loadCart()
+  /** Form pemesanan sedang terlihat di layar → bar ringkasan tidak perlu tampil. */
+  let checkoutInView = false
 
   function loadCart() {
     try {
@@ -111,7 +113,22 @@
       el.input.value = JSON.stringify(lines.map((line) => ({ productId: line.id, quantity: line.quantity })))
     }
     if (el.checkout instanceof HTMLElement) el.checkout.hidden = count === 0
-    if (el.cartbar instanceof HTMLElement) el.cartbar.hidden = count === 0
+    if (el.cartbar instanceof HTMLElement) el.cartbar.hidden = count === 0 || checkoutInView
+  }
+
+  function goToCheckout() {
+    if (!(el.checkout instanceof HTMLElement)) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.checkout.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    const nameInput = el.checkout.querySelector('input[name="name"]')
+    if (nameInput instanceof HTMLInputElement) nameInput.focus({ preventScroll: true })
+  }
+
+  if (el.checkout instanceof HTMLElement && 'IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      checkoutInView = entries.some((entry) => entry.isIntersecting)
+      render()
+    }).observe(el.checkout)
   }
 
   root.addEventListener('click', (event) => {
@@ -119,6 +136,12 @@
     if (!(target instanceof Element)) return
     const button = target.closest('[data-action]')
     if (!(button instanceof HTMLElement)) return
+
+    if (button.dataset.action === 'go-checkout') {
+      event.preventDefault()
+      goToCheckout()
+      return
+    }
 
     if (button.dataset.action === 'clear') {
       cart = {}

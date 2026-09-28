@@ -1,4 +1,5 @@
 import { ValidationError } from '../lib/errors'
+import type { OpeningHours } from './opening-hours'
 import { normalizeWhatsAppNumber } from './whatsapp'
 
 export interface Store {
@@ -8,6 +9,8 @@ export interface Store {
   readonly name: string
   readonly whatsapp: string
   readonly spreadsheetId: string
+  /** null = belum diatur → selalu buka */
+  readonly openingHours: OpeningHours | null
   readonly createdAt: number
   readonly updatedAt: number
 }

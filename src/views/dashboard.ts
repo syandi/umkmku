@@ -1,10 +1,12 @@
 import { formatRupiah } from '../domain/money'
+import type { OpenStatus } from '../domain/opening-hours'
 import { PRODUCT_COLUMNS, type Product } from '../domain/product'
 import { spreadsheetUrl, storefrontPath, type Store } from '../domain/store'
 import type { User } from '../domain/user'
 import { html, type SafeHtml } from '../lib/html'
 import type { CatalogStatus } from '../services/store-service'
 import { layout, siteHeader } from './layout'
+import { openingHoursForm, openStatusBadge, type OpeningHoursFormInput } from './opening-hours'
 
 export interface DashboardFlash {
   readonly type: 'success' | 'error'
@@ -21,9 +23,12 @@ export interface DashboardProps {
   readonly user: User
   readonly store: Store | null
   readonly catalog: CatalogStatus | null
+  readonly openStatus: OpenStatus | null
   readonly appUrl: string
   readonly flash?: DashboardFlash
   readonly form?: StoreFormValues
+  /** Input form jadwal yang gagal divalidasi, agar isian pengguna tidak hilang. */
+  readonly hoursForm?: OpeningHoursFormInput
 }
 
 export function dashboardPage(props: DashboardProps): SafeHtml {
@@ -56,6 +61,7 @@ function storeOverview(store: Store, props: DashboardProps): SafeHtml {
   return html`<section class="card">
       <p class="eyebrow">Toko Anda</p>
       <h1>${store.name}</h1>
+      ${props.openStatus ? html`<p>${openStatusBadge(props.openStatus, store.openingHours)}</p>` : null}
       <div class="link-box">
         <a href="${storefrontPath(store.slug)}" target="_blank" rel="noopener">${publicUrl}</a>
       </div>
@@ -68,6 +74,15 @@ function storeOverview(store: Store, props: DashboardProps): SafeHtml {
     <section class="card">
       <h2>Produk</h2>
       ${catalogSection(props.catalog)}
+    </section>
+
+    <section class="card" id="jam-buka">
+      <h2>Jam Buka</h2>
+      <p class="muted">Pesanan hanya dapat dikirim pembeli saat toko buka.</p>
+      ${store.openingHours
+        ? null
+        : html`<p class="alert alert--info">Jam buka belum diatur, sehingga toko saat ini menerima pesanan 24 jam. Simpan jadwal di bawah untuk mulai membatasi.</p>`}
+      ${openingHoursForm(store.openingHours, props.hoursForm)}
     </section>
 
     <section class="card">

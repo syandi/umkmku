@@ -36,6 +36,7 @@ src/
 │   ├── order.ts        Validasi keranjang & perhitungan total
 │   ├── whatsapp.ts     Normalisasi nomor & format pesan wa.me
 │   ├── store.ts        Validasi toko (slug, nama, WA)
+│   ├── opening-hours.ts Jadwal buka & status buka/tutup (zona waktu WIB/WITA/WIT)
 │   └── money.ts        Format rupiah
 ├── services/           Use case aplikasi
 │   ├── ports.ts        Interface repository/gateway (dependency inversion)
@@ -124,7 +125,18 @@ Spreadsheet dibuat otomatis saat toko dibuat, berisi dua sheet:
 - Baris tanpa Nama/Harga diabaikan. `Aktif` = FALSE menyembunyikan produk.
 - `Stok` kosong = tidak dibatasi; `0` = habis.
 
-**Pesanan** — diisi otomatis setiap checkout: Waktu (WIB), Nama, Alamat, Catatan, Item, Total.
+**Pesanan** — diisi otomatis setiap checkout: Waktu (zona waktu toko), Nama, Alamat, Catatan, Item, Total.
+
+## Jam buka
+
+Diatur pemilik toko di dashboard (kartu **Jam Buka**): jadwal per hari Senin–Minggu dan zona waktu WIB/WITA/WIT.
+
+- Pesanan **hanya diterima saat toko buka**. Aturan ini ditegakkan di server (`StoreService.checkout`), bukan hanya di tampilan.
+- Saat tutup, halaman toko tetap menampilkan produk, tetapi form pesanan disembunyikan dan pembeli diberi tahu kapan toko buka lagi.
+- Jam tutup lebih awal dari jam buka = buka melewati tengah malam (mis. 18:00–02:00). Jam buka = jam tutup = 24 jam.
+- Toko yang belum mengatur jadwal dianggap buka 24 jam.
+
+Setelah menarik perubahan ini, jalankan migrasi: `bun run db:migrate:local` (dan `db:migrate:remote` saat deploy).
 
 ## Catatan: Elysia di Cloudflare Workers
 

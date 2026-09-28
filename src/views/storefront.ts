@@ -1,14 +1,24 @@
 import { formatRupiah } from '../domain/money'
+import { describeNextOpening, type OpeningHours, type OpenStatus } from '../domain/opening-hours'
 import { isAvailable, type Product } from '../domain/product'
 import { storefrontPath, type Store } from '../domain/store'
 import { html, type SafeHtml } from '../lib/html'
 import { layout } from './layout'
+import { openStatusBadge, scheduleList } from './opening-hours'
+
+export interface StorefrontProps {
+  readonly store: Store
+  readonly products: readonly Product[]
+  readonly status: OpenStatus
+}
 
 /**
  * Halaman toko publik. Interaksi keranjang ditangani /assets/cart.js;
  * data produk dibaca skrip dari atribut data-* (tanpa inline script, ramah CSP).
  */
-export function storefrontPage({ store, products }: { store: Store; products: readonly Product[] }): SafeHtml {
+export function storefrontPage({ store, products, status }: StorefrontProps): SafeHtml {
+  const acceptingOrders = status.isOpen
+
   return layout({
     title: `${store.name} · UMKMku`,
     description: `Belanja di ${store.name}. Pesan langsung via WhatsApp.`,
@@ -17,19 +27,41 @@ export function storefrontPage({ store, products }: { store: Store; products: re
       <header class="store-header">
         <div class="container">
           <h1>${store.name}</h1>
-          <p class="muted">Pilih produk, lalu kirim pesanan lewat WhatsApp.</p>
+          <p class="store-header__status">${openStatusBadge(status, store.openingHours)}</p>
+          ${store.openingHours
+            ? html`<details class="store-header__hours"><summary>Lihat jam buka</summary>${scheduleList(store.openingHours)}</details>`
+            : null}
+          ${acceptingOrders ? html`<p class="muted">Pilih produk, lalu kirim pesanan lewat WhatsApp.</p>` : null}
         </div>
       </header>
 
-      <noscript><p class="container alert alert--info">Aktifkan JavaScript untuk memesan.</p></noscript>
+      ${acceptingOrders ? html`<noscript><p class="container alert alert--info">Aktifkan JavaScript untuk memesan.</p></noscript>` : closedNotice(status, store.openingHours)}
 
       <section class="container">
         ${products.length
-          ? html`<div class="product-grid">${products.map(productCard)}</div>`
+          ? html`<div class="product-grid">${products.map((product) => productCard(product, acceptingOrders))}</div>`
           : html`<p class="card center muted">Toko ini belum memiliki produk.</p>`}
       </section>
 
-      <section id="checkout" class="container" data-checkout hidden>
+      ${acceptingOrders ? checkoutSection(store) : null}
+    </main>`,
+  })
+}
+
+function closedNotice(status: OpenStatus, hours: OpeningHours | null): SafeHtml | null {
+  if (status.isOpen) return null
+  const next = describeNextOpening(status.nextOpen, hours)
+  return html`<div class="container">
+    <p class="alert alert--info" role="status">
+      Toko sedang tutup, pesanan belum dapat diterima.${next ? ` Silakan kembali ${next}.` : ''}
+      Anda tetap dapat melihat-lihat produk.
+    </p>
+  </div>`
+}
+
+/** Form pemesanan + bar ringkasan; hanya dirender ketika toko buka. */
+function checkoutSection(store: Store): SafeHtml {
+  return html`<section id="checkout" class="container" data-checkout hidden>
         <div class="card checkout">
           <div class="checkout__head">
             <h2>Pesanan Anda</h2>
@@ -54,17 +86,16 @@ export function storefrontPage({ store, products }: { store: Store; products: re
         </div>
       </section>
 
+      <!-- Ringkasan melayang: hanya tampil bila keranjang berisi DAN form pemesanan belum terlihat. -->
       <div class="cartbar" data-cartbar hidden>
         <div class="container cartbar__inner">
           <span data-cart-summary></span>
-          <a class="btn btn--wa" href="#checkout">Checkout</a>
+          <a class="btn btn--wa" href="#checkout" data-action="go-checkout">Lanjut pesan</a>
         </div>
-      </div>
-    </main>`,
-  })
+      </div>`
 }
 
-function productCard(product: Product): SafeHtml {
+function productCard(product: Product, acceptingOrders: boolean): SafeHtml {
   const available = isAvailable(product)
 
   return html`<article class="product ${available ? '' : 'product--soldout'}"
@@ -77,7 +108,9 @@ function productCard(product: Product): SafeHtml {
       <h3 class="product__name">${product.name}</h3>
       <p class="product__price">${formatRupiah(product.price)}</p>
       ${product.description ? html`<p class="product__desc">${product.description}</p>` : null}
-      ${available
+      ${!acceptingOrders
+        ? null
+        : available
         ? html`<div class="qty" role="group" aria-label="Jumlah ${product.name}">
             <button type="button" class="qty__btn" data-action="decrement" aria-label="Kurangi">−</button>
             <output class="qty__value" data-qty>0</output>

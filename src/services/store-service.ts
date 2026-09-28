@@ -1,3 +1,11 @@
+import {
+  describeNextOpening,
+  resolveOpenStatus,
+  STORE_TIMEZONES,
+  DEFAULT_TIMEZONE,
+  validateOpeningHoursInput,
+  type OpenStatus,
+} from '../domain/opening-hours'
 import { buildOrder, normalizeCustomer, parseCart, summarizeOrderLines, type Order } from '../domain/order'
 import { parseProductRows, type Product } from '../domain/product'
 import { validateStoreInput, type Store } from '../domain/store'
@@ -34,8 +42,6 @@ export interface StoreServiceDeps {
   readonly now?: () => Date
 }
 
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000
-
 export class StoreService {
   constructor(private readonly deps: StoreServiceDeps) {}
 
@@ -63,6 +69,17 @@ export class StoreService {
 
     const spreadsheetId = await this.createSpreadsheet(owner.id, input.name)
     return this.deps.stores.create({ ...input, ownerId: owner.id, spreadsheetId })
+  }
+
+  /** Menyimpan jadwal buka dari form dashboard. */
+  async updateOpeningHours(owner: User, raw: Readonly<Record<string, string | undefined>>): Promise<void> {
+    const store = await this.deps.stores.findByOwner(owner.id)
+    if (!store) throw new NotFoundError('Toko')
+    await this.deps.stores.updateOpeningHours(store.id, validateOpeningHoursInput(raw))
+  }
+
+  getOpenStatus(store: Store): OpenStatus {
+    return resolveOpenStatus(store.openingHours, this.now())
   }
 
   /** Untuk kasus spreadsheet terhapus: buat yang baru dan tautkan ke toko. */
@@ -110,6 +127,7 @@ export class StoreService {
    */
   async checkout(slug: string, input: CheckoutInput): Promise<string> {
     const store = await this.getBySlug(slug)
+    this.assertAcceptingOrders(store)
     const items = parseCart(input.cart)
     const customer = normalizeCustomer(input)
     const order = buildOrder(await this.getCatalog(store, { fresh: true }), items, customer)
@@ -118,12 +136,23 @@ export class StoreService {
     return buildWhatsAppUrl(store.whatsapp, buildOrderMessage(store.name, order))
   }
 
+  /** Aturan bisnis: pesanan hanya diterima saat toko buka (ditegakkan di server, bukan hanya di UI). */
+  private assertAcceptingOrders(store: Store): void {
+    const status = this.getOpenStatus(store)
+    if (status.isOpen) return
+    const next = describeNextOpening(status.nextOpen, store.openingHours)
+    throw new ValidationError(
+      `Maaf, ${store.name} sedang tutup sehingga pesanan belum dapat diterima.` +
+        (next ? ` Silakan pesan lagi ${next}.` : ''),
+    )
+  }
+
   /** Best-effort: kegagalan mencatat tidak boleh menggagalkan pesanan via WhatsApp. */
   private async recordOrder(store: Store, order: Order): Promise<void> {
     try {
       await this.withOwnerToken(store.ownerId, (token) =>
         this.deps.sheets.appendOrderRow(token, store.spreadsheetId, [
-          this.jakartaTimestamp(),
+          this.localTimestamp(store),
           order.customer.name,
           order.customer.address,
           order.customer.note,
@@ -153,8 +182,13 @@ export class StoreService {
     }
   }
 
-  private jakartaTimestamp(): string {
-    const now = this.deps.now?.() ?? new Date()
-    return new Date(now.getTime() + JAKARTA_OFFSET_MS).toISOString().slice(0, 19).replace('T', ' ')
+  private now(): Date {
+    return this.deps.now?.() ?? new Date()
+  }
+
+  /** Waktu pesanan dalam zona waktu toko, mis. "2026-09-28 09:00:00". */
+  private localTimestamp(store: Store): string {
+    const { offsetMinutes } = STORE_TIMEZONES[store.openingHours?.timezone ?? DEFAULT_TIMEZONE]
+    return new Date(this.now().getTime() + offsetMinutes * 60_000).toISOString().slice(0, 19).replace('T', ' ')
   }
 }

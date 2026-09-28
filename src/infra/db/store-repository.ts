@@ -1,3 +1,4 @@
+import { parseOpeningHours, serializeOpeningHours, type OpeningHours } from '../../domain/opening-hours'
 import type { Store, StoreInput } from '../../domain/store'
 import { NotFoundError, ValidationError } from '../../lib/errors'
 import type { StoreRepository } from '../../services/ports'
@@ -9,11 +10,13 @@ interface StoreRow {
   name: string
   whatsapp: string
   spreadsheet_id: string
+  opening_hours: string | null
   created_at: number
   updated_at: number
 }
 
-const SELECT_STORE = 'SELECT id, owner_id, slug, name, whatsapp, spreadsheet_id, created_at, updated_at FROM stores'
+const STORE_COLUMNS = 'id, owner_id, slug, name, whatsapp, spreadsheet_id, opening_hours, created_at, updated_at'
+const SELECT_STORE = `SELECT ${STORE_COLUMNS} FROM stores`
 
 export class D1StoreRepository implements StoreRepository {
   constructor(private readonly db: D1Database) {}
@@ -30,7 +33,7 @@ export class D1StoreRepository implements StoreRepository {
 
   async create(data: StoreInput & { ownerId: string; spreadsheetId: string }): Promise<Store> {
     const now = Date.now()
-    const store: Store = { id: crypto.randomUUID(), createdAt: now, updatedAt: now, ...data }
+    const store: Store = { id: crypto.randomUUID(), openingHours: null, createdAt: now, updatedAt: now, ...data }
     await this.withUniqueSlugGuard(() =>
       this.db
         .prepare(
@@ -49,7 +52,7 @@ export class D1StoreRepository implements StoreRepository {
         .prepare(
           `UPDATE stores SET slug = ?2, name = ?3, whatsapp = ?4, updated_at = ?5
            WHERE id = ?1
-           RETURNING id, owner_id, slug, name, whatsapp, spreadsheet_id, created_at, updated_at`,
+           RETURNING ${STORE_COLUMNS}`,
         )
         .bind(storeId, data.slug, data.name, data.whatsapp, Date.now())
         .first<StoreRow>(),
@@ -62,6 +65,13 @@ export class D1StoreRepository implements StoreRepository {
     await this.db
       .prepare('UPDATE stores SET spreadsheet_id = ?2, updated_at = ?3 WHERE id = ?1')
       .bind(storeId, spreadsheetId, Date.now())
+      .run()
+  }
+
+  async updateOpeningHours(storeId: string, hours: OpeningHours): Promise<void> {
+    await this.db
+      .prepare('UPDATE stores SET opening_hours = ?2, updated_at = ?3 WHERE id = ?1')
+      .bind(storeId, serializeOpeningHours(hours), Date.now())
       .run()
   }
 
@@ -86,6 +96,7 @@ function toStore(row: StoreRow): Store {
     name: row.name,
     whatsapp: row.whatsapp,
     spreadsheetId: row.spreadsheet_id,
+    openingHours: parseOpeningHours(row.opening_hours),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

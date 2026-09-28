@@ -11,7 +11,7 @@ export function storefrontRoutes({ stores }: AppContainer) {
     .get('/:slug', async ({ params }) => {
       const store = await stores.getBySlug(params.slug)
       const products = await stores.getCatalog(store)
-      return htmlResponse(storefrontPage({ store, products }))
+      return htmlResponse(storefrontPage({ store, products, status: stores.getOpenStatus(store) }))
     })
     .post(
       '/:slug/checkout',
