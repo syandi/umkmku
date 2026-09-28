@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "umkmku",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+
+  // File statis (CSS/JS) dilayani langsung oleh Cloudflare sebelum Worker dipanggil.
+  "assets": { "directory": "public" },
+
+  "observability": { "enabled": true },
+
+  // Nilai non-rahasia. Untuk lokal, ditimpa oleh .dev.vars.
+  // Rahasia (GOOGLE_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY) diset via `wrangler secret put`.
+  "vars": {
+    "APP_URL": "https://umkmku.example.workers.dev"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "umkmku",
+      "database_id": "GANTI_DENGAN_ID_DARI_wrangler_d1_create",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

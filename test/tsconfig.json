@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  // Hanya file test; modul src yang di-import ikut dicek (semuanya bebas binding Workers).
+  "include": ["."]
+}

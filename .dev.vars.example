@@ -1,0 +1,6 @@
+# Salin menjadi .dev.vars untuk development lokal (file ini TIDAK di-commit).
+APP_URL=http://localhost:8787
+GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxx
+# 32 byte acak, base64. Buat dengan: openssl rand -base64 32
+TOKEN_ENCRYPTION_KEY=
