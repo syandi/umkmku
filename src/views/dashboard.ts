@@ -7,6 +7,7 @@ import { html, type SafeHtml } from '../lib/html'
 import type { CatalogStatus } from '../services/store-service'
 import { layout, siteHeader } from './layout'
 import { openingHoursForm, openStatusBadge, type OpeningHoursFormInput } from './opening-hours'
+import { qrCard } from './qr'
 
 export interface DashboardFlash {
   readonly type: 'success' | 'error'
@@ -70,6 +71,8 @@ function storeOverview(store: Store, props: DashboardProps): SafeHtml {
         <a class="btn" href="${storefrontPath(store.slug)}" target="_blank" rel="noopener">Lihat Toko</a>
       </div>
     </section>
+
+    ${qrCard(store, props.appUrl)}
 
     <section class="card">
       <h2>Produk</h2>

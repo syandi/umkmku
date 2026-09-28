@@ -44,3 +44,25 @@ export function redirectResponse(location: string, options: ResponseOptions & { 
   headers.set('cache-control', 'no-store')
   return new Response(null, { status: options.status ?? 302, headers })
 }
+
+export interface FileResponseOptions {
+  readonly contentType: string
+  /** Bila diisi, browser mengunduh file dengan nama ini alih-alih menampilkannya. */
+  readonly downloadName?: string
+  readonly cacheSeconds?: number
+}
+
+/** Respons file biner/teks (gambar QR, dll). */
+export function fileResponse(body: BodyInit, options: FileResponseOptions): Response {
+  const headers = new Headers({
+    'content-type': options.contentType,
+    'x-content-type-options': 'nosniff',
+    // File tidak boleh menjalankan skrip, termasuk SVG yang dibuka langsung.
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+    'cache-control': options.cacheSeconds ? `public, max-age=${options.cacheSeconds}` : 'no-store',
+  })
+  if (options.downloadName) {
+    headers.set('content-disposition', `attachment; filename="${options.downloadName.replace(/[^\w.-]/g, '_')}"`)
+  }
+  return new Response(body, { headers })
+}

@@ -127,6 +127,19 @@ Spreadsheet dibuat otomatis saat toko dibuat, berisi dua sheet:
 
 **Pesanan** — diisi otomatis setiap checkout: Waktu (zona waktu toko), Nama, Alamat, Catatan, Item, Total.
 
+## QR code toko
+
+Kartu **QR Code Toko** di dashboard menyediakan:
+
+- **Cetak Poster** (`/dashboard/qr`): poster A4 berisi nama toko, QR besar, link, dan jam buka.
+- **Unduh PNG** (`/s/:slug/qr.png?download=1`): untuk dibagikan di WhatsApp/Instagram.
+- **Unduh SVG** (`/s/:slug/qr.svg?download=1`): vektor, tajam dicetak sebesar apa pun (spanduk, stiker).
+
+QR dibuat oleh encoder internal tanpa dependensi (`src/lib/qr`): mode byte, koreksi error level M
+(tetap terbaca walau ±15% rusak), versi 1–10. Kebenarannya diverifikasi dengan memindai hasil versi 1–10
+memakai pemindai OpenCV. Isi QR mengikuti `APP_URL`, jadi pastikan `APP_URL` produksi sudah benar
+sebelum mencetak QR.
+
 ## Jam buka
 
 Diatur pemilik toko di dashboard (kartu **Jam Buka**): jadwal per hari Senin–Minggu dan zona waktu WIB/WITA/WIT.

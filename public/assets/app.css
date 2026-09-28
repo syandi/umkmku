@@ -189,3 +189,31 @@ th { color: var(--muted); font-weight: 600; font-size: 0.85rem; }
 .hours__day input { width: 20px; height: 20px; min-height: 0; }
 .hours__row:has(.hours__day input:not(:checked)) input[type="time"] { opacity: 0.4; }
 select { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-height: 44px; }
+
+/* QR code */
+.qr-card { display: grid; gap: 20px; align-items: start; }
+@media (min-width: 640px) { .qr-card { grid-template-columns: 160px 1fr; } }
+.qr-card__image { width: 160px; height: 160px; border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 6px; image-rendering: pixelated; }
+.qr-card__hint { font-size: 0.85rem; margin-top: 12px; }
+
+.poster { padding: 24px 16px; }
+.poster__actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+.poster__sheet { max-width: 520px; margin: 0 auto; background: #fff; color: #111; border: 1px solid var(--border); border-radius: 20px; padding: 40px 32px; text-align: center; }
+.poster__eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.8rem; font-weight: 700; color: #0f766e; margin: 0 0 8px; }
+.poster__title { font-size: clamp(1.8rem, 6vw, 2.6rem); margin: 0 0 8px; overflow-wrap: anywhere; }
+.poster__subtitle { font-size: 1.1rem; margin: 0 0 24px; color: #333; }
+.poster__qr { width: min(100%, 340px); aspect-ratio: 1; margin: 0 auto 16px; image-rendering: pixelated; }
+.poster__url { font-weight: 700; font-size: 1.05rem; overflow-wrap: anywhere; margin: 0 0 16px; }
+.poster__hours { display: inline-block; text-align: left; border-top: 1px solid #ddd; padding-top: 16px; }
+.poster__hours-title { font-weight: 700; margin: 0 0 4px; }
+.poster .schedule { color: #111; }
+.poster .schedule__tz { color: #555; }
+
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .poster { padding: 0; }
+  .poster__sheet { border: 2px solid #111; max-width: none; width: 100%; }
+  .poster__qr { width: 110mm; }
+}

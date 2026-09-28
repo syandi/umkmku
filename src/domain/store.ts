@@ -58,3 +58,8 @@ export function spreadsheetUrl(spreadsheetId: string): string {
 export function storefrontPath(slug: string): string {
   return `/s/${encodeURIComponent(slug)}`
 }
+
+/** URL publik lengkap toko — isi QR code & link yang dibagikan. */
+export function storefrontUrl(appUrl: string, slug: string): string {
+  return `${appUrl}${storefrontPath(slug)}`
+}
