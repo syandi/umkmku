@@ -22,6 +22,7 @@ describe('StoreService', () => {
       sheets,
       tokens: new FakeTokens(),
       catalogCache: cache,
+      generateCode: () => 'A7K2',
       now: () => new Date('2026-09-28T02:00:00Z'),
     })
   })
@@ -50,19 +51,19 @@ describe('StoreService', () => {
     await service.saveStore(owner, input)
     sheets.rows = [['A', 'Keripik', 10000, '', '', 5, true]]
 
-    const url = new URL(
-      await service.checkout('dapur-sari', {
-        // Harga palsu dari klien diabaikan.
-        cart: JSON.stringify([{ productId: 'A', quantity: 2, price: 1 }]),
-        name: 'Budi',
-        address: 'Jl. Mawar 1',
-      }),
-    )
+    const result = await service.checkout('dapur-sari', {
+      // Harga palsu dari klien diabaikan.
+      cart: JSON.stringify([{ productId: 'A', quantity: 2, price: 1 }]),
+      name: 'Budi',
+      address: 'Jl. Mawar 1',
+    })
+    if (result.kind !== 'whatsapp') throw new Error('expected whatsapp result')
+    const url = new URL(result.url)
 
     expect(url.hostname).toBe('wa.me')
     expect(url.pathname).toBe('/6281234567890')
     expect(url.searchParams.get('text')).toContain('*Total: Rp20.000*')
-    expect(sheets.appended).toEqual([['2026-09-28 09:00:00', 'Budi', 'Jl. Mawar 1', '', 'Keripik x2', 20000]])
+    expect(sheets.appended).toEqual([['2026-09-28 09:00:00', 'Budi', 'Jl. Mawar 1', '', 'Keripik x2', 20000, '', '', '', '']])
   })
 
   it('checkout tetap berhasil walau pencatatan ke sheet gagal', async () => {
@@ -72,7 +73,7 @@ describe('StoreService', () => {
 
     await expect(
       service.checkout('dapur-sari', { cart: JSON.stringify([{ productId: 'A', quantity: 1 }]), name: 'Budi' }),
-    ).resolves.toContain('https://wa.me/')
+    ).resolves.toMatchObject({ kind: 'whatsapp' })
   })
 
   it('menolak checkout saat toko tutup dan menyebut kapan buka lagi', async () => {
@@ -96,6 +97,39 @@ describe('StoreService', () => {
     const store = await stores.findByOwner(owner.id)
     expect(store?.openingHours?.days[1]).toEqual({ open: '08:00', close: '10:00' })
     expect(service.getOpenStatus(store!)).toEqual({ isOpen: true, closesAt: '10:00' })
+  })
+
+  describe('mode warung (nomor meja)', () => {
+    const cart = JSON.stringify([{ productId: 'A', quantity: 2 }])
+
+    beforeEach(async () => {
+      await service.saveStore(owner, input)
+      sheets.rows = [['A', 'Es Teh', 5000, '', '', '', true]]
+    })
+
+    it('mencatat meja, kode, dan status bayar QRIS, lalu membuat tautan bukti bayar', async () => {
+      const result = await service.checkout('dapur-sari', { cart, name: 'Budi', table: '5', payment: 'qris', address: 'abaikan' })
+      if (result.kind !== 'dine_in') throw new Error('expected dine_in')
+
+      expect(result.receipt).toMatchObject({ code: 'A7K2', table: '5', payment: 'qris' })
+      expect(sheets.appended).toEqual([
+        ['2026-09-28 09:00:00', 'Budi', '', '', 'Es Teh x2', 10000, '5', 'A7K2', 'QRIS', 'Menunggu bukti bayar'],
+      ])
+      const text = new URL(result.receipt.proofUrl).searchParams.get('text')
+      expect(text).toContain('A7K2')
+      expect(text).toContain('Meja: 5')
+      expect(text).toContain('Rp10.000')
+    })
+
+    it('bayar di kasir tidak membutuhkan QRIS', async () => {
+      await service.checkout('dapur-sari', { cart, name: 'Budi', table: '7', payment: 'cash' })
+      expect(sheets.appended[0]?.slice(6)).toEqual(['7', 'A7K2', 'Tunai', 'Bayar di kasir'])
+    })
+
+    it('menolak checkout meja tanpa pilihan pembayaran', async () => {
+      await expect(service.checkout('dapur-sari', { cart, name: 'Budi', table: '5' })).rejects.toThrow(/cara pembayaran/)
+      expect(sheets.appended).toEqual([])
+    })
   })
 
   it('katalog memakai cache kecuali diminta fresh', async () => {

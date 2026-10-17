@@ -6,6 +6,13 @@ import {
   validateOpeningHoursInput,
   type OpenStatus,
 } from '../domain/opening-hours'
+import {
+  buildPaymentProofMessage,
+  generateOrderCode,
+  parsePaymentMethod,
+  parseTableNumber,
+  type PaymentMethod,
+} from '../domain/dining'
 import { buildOrder, normalizeCustomer, parseCart, summarizeOrderLines, type Order } from '../domain/order'
 import { parseProductRows, type Product } from '../domain/product'
 import { validateStoreInput, type Store } from '../domain/store'
@@ -18,7 +25,12 @@ import {
   SpreadsheetUnavailableError,
   ValidationError,
 } from '../lib/errors'
-import type { AccessTokenSource, CatalogCache, StoreRepository, StoreSpreadsheetGateway } from './ports'
+import type {
+  AccessTokenSource,
+  CatalogCache,
+  StoreRepository,
+  StoreSpreadsheetGateway,
+} from './ports'
 
 /** Status katalog untuk dashboard: pemilik perlu tahu *mengapa* produk tidak tampil. */
 export type CatalogStatus =
@@ -32,14 +44,38 @@ export interface CheckoutInput {
   readonly name: string
   readonly address?: string
   readonly note?: string
+  /** Nomor meja (mode warung). Bila ada, `payment` wajib dan alamat diabaikan. */
+  readonly table?: string
+  readonly payment?: string
 }
+
+/** Struk pesanan meja: dirender sebagai halaman konfirmasi berisi QRIS & tombol bukti bayar. */
+export interface DineInReceipt {
+  readonly code: string
+  readonly table: string
+  readonly payment: PaymentMethod
+  readonly order: Order
+  readonly proofUrl: string
+}
+
+export type CheckoutResult =
+  | { readonly kind: 'whatsapp'; readonly url: string }
+  | { readonly kind: 'dine_in'; readonly receipt: DineInReceipt }
 
 export interface StoreServiceDeps {
   readonly stores: StoreRepository
   readonly sheets: StoreSpreadsheetGateway
   readonly tokens: AccessTokenSource
   readonly catalogCache: CatalogCache
+  readonly generateCode?: () => string
   readonly now?: () => Date
+}
+
+interface DiningColumns {
+  readonly table: string
+  readonly code: string
+  readonly payment: string
+  readonly status: string
 }
 
 export class StoreService {
@@ -122,18 +158,33 @@ export class StoreService {
   }
 
   /**
-   * Memvalidasi keranjang terhadap katalog terbaru, mencatat pesanan ke sheet "Pesanan",
-   * lalu mengembalikan URL wa.me berisi pesan pesanan.
+   * Memvalidasi keranjang terhadap katalog terbaru dan mencatat pesanan ke sheet "Pesanan".
+   * Tanpa nomor meja → URL wa.me berisi pesanan. Dengan nomor meja → struk untuk halaman pembayaran.
    */
-  async checkout(slug: string, input: CheckoutInput): Promise<string> {
+  async checkout(slug: string, input: CheckoutInput): Promise<CheckoutResult> {
     const store = await this.getBySlug(slug)
     this.assertAcceptingOrders(store)
     const items = parseCart(input.cart)
-    const customer = normalizeCustomer(input)
+    const table = parseTableNumber(input.table)
+    const customer = normalizeCustomer(table ? { ...input, address: '' } : input)
     const order = buildOrder(await this.getCatalog(store, { fresh: true }), items, customer)
 
-    await this.recordOrder(store, order)
-    return buildWhatsAppUrl(store.whatsapp, buildOrderMessage(store.name, order))
+    if (!table) {
+      await this.recordOrder(store, order, { table: '', code: '', payment: '', status: '' })
+      return { kind: 'whatsapp', url: buildWhatsAppUrl(store.whatsapp, buildOrderMessage(store.name, order)) }
+    }
+
+    const payment = parsePaymentMethod(input.payment)
+
+    const code = (this.deps.generateCode ?? generateOrderCode)()
+    await this.recordOrder(store, order, {
+      table,
+      code,
+      payment: payment === 'qris' ? 'QRIS' : 'Tunai',
+      status: payment === 'qris' ? 'Menunggu bukti bayar' : 'Bayar di kasir',
+    })
+    const proofUrl = buildWhatsAppUrl(store.whatsapp, buildPaymentProofMessage(store.name, code, table, order))
+    return { kind: 'dine_in', receipt: { code, table, payment, order, proofUrl } }
   }
 
   /** Aturan bisnis: pesanan hanya diterima saat toko buka (ditegakkan di server, bukan hanya di UI). */
@@ -148,7 +199,7 @@ export class StoreService {
   }
 
   /** Best-effort: kegagalan mencatat tidak boleh menggagalkan pesanan via WhatsApp. */
-  private async recordOrder(store: Store, order: Order): Promise<void> {
+  private async recordOrder(store: Store, order: Order, dining: DiningColumns): Promise<void> {
     try {
       await this.withOwnerToken(store.ownerId, (token) =>
         this.deps.sheets.appendOrderRow(token, store.spreadsheetId, [
@@ -158,6 +209,10 @@ export class StoreService {
           order.customer.note,
           summarizeOrderLines(order),
           order.total,
+          dining.table,
+          dining.code,
+          dining.payment,
+          dining.status,
         ]),
       )
     } catch (error) {

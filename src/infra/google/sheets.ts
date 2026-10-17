@@ -6,7 +6,7 @@ import { defaultFetch, readJson, type FetchFn } from '../http'
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets'
 
 export const ORDER_SHEET_NAME = 'Pesanan'
-export const ORDER_COLUMNS = ['Waktu', 'Nama', 'Alamat', 'Catatan', 'Item', 'Total'] as const
+export const ORDER_COLUMNS = ['Waktu', 'Nama', 'Alamat', 'Catatan', 'Item', 'Total', 'Meja', 'Kode', 'Pembayaran', 'Status Bayar'] as const
 
 const SAMPLE_PRODUCTS: readonly (readonly SheetCell[])[] = [
   ['P001', 'Contoh: Keripik Singkong Pedas', 15000, 'Ganti baris ini dengan produk Anda', '', 20, true],

@@ -10,13 +10,15 @@ export interface StorefrontProps {
   readonly store: Store
   readonly products: readonly Product[]
   readonly status: OpenStatus
+  /** Nomor meja dari `?meja=` → mode warung (tanpa alamat, dengan pilihan pembayaran). */
+  readonly table?: string | null
 }
 
 /**
  * Halaman toko publik. Interaksi keranjang ditangani /assets/cart.js;
  * data produk dibaca skrip dari atribut data-* (tanpa inline script, ramah CSP).
  */
-export function storefrontPage({ store, products, status }: StorefrontProps): SafeHtml {
+export function storefrontPage({ store, products, status, table = null }: StorefrontProps): SafeHtml {
   const acceptingOrders = status.isOpen
 
   return layout({
@@ -31,7 +33,10 @@ export function storefrontPage({ store, products, status }: StorefrontProps): Sa
           ${store.openingHours
             ? html`<details class="store-header__hours"><summary>Lihat jam buka</summary>${scheduleList(store.openingHours)}</details>`
             : null}
-          ${acceptingOrders ? html`<p class="muted">Pilih produk, lalu kirim pesanan lewat WhatsApp.</p>` : null}
+          ${table ? html`<p class="table-badge">Meja ${table}</p>` : null}
+          ${acceptingOrders
+            ? html`<p class="muted">${table ? 'Pilih menu, lalu pesan dan bayar dari HP Anda.' : 'Pilih produk, lalu kirim pesanan lewat WhatsApp.'}</p>`
+            : null}
         </div>
       </header>
 
@@ -43,7 +48,7 @@ export function storefrontPage({ store, products, status }: StorefrontProps): Sa
           : html`<p class="card center muted">Toko ini belum memiliki produk.</p>`}
       </section>
 
-      ${acceptingOrders ? checkoutSection(store) : null}
+      ${acceptingOrders ? checkoutSection(store, table) : null}
     </main>`,
   })
 }
@@ -60,7 +65,7 @@ function closedNotice(status: OpenStatus, hours: OpeningHours | null): SafeHtml 
 }
 
 /** Form pemesanan + bar ringkasan; hanya dirender ketika toko buka. */
-function checkoutSection(store: Store): SafeHtml {
+function checkoutSection(store: Store, table: string | null): SafeHtml {
   return html`<section id="checkout" class="container" data-checkout hidden>
         <div class="card checkout">
           <div class="checkout__head">
@@ -75,13 +80,16 @@ function checkoutSection(store: Store): SafeHtml {
             <label>Nama
               <input name="name" required minlength="2" maxlength="80" autocomplete="name">
             </label>
-            <label>Alamat pengiriman
+            ${table
+              ? html`<input type="hidden" name="table" value="${table}">`
+              : html`<label>Alamat pengiriman
               <textarea name="address" rows="3" maxlength="300" autocomplete="street-address"></textarea>
-            </label>
+            </label>`}
             <label>Catatan (opsional)
               <textarea name="note" rows="2" maxlength="300"></textarea>
             </label>
-            <button class="btn btn--wa btn--lg" type="submit">Kirim Pesanan via WhatsApp</button>
+            ${table ? paymentOptions() : null}
+            <button class="btn btn--wa btn--lg" type="submit">${table ? `Pesan untuk Meja ${table}` : 'Kirim Pesanan via WhatsApp'}</button>
           </form>
         </div>
       </section>
@@ -119,4 +127,12 @@ function productCard(product: Product, acceptingOrders: boolean): SafeHtml {
         : html`<span class="badge">Stok habis</span>`}
     </div>
   </article>`
+}
+
+function paymentOptions(): SafeHtml {
+  return html`<fieldset class="payment">
+    <legend>Cara pembayaran</legend>
+    <label class="payment__option"><input type="radio" name="payment" value="qris" required checked> <span>QRIS <small class="muted">— QRIS dikirim warung lewat WhatsApp, lalu Anda kirim bukti bayar</small></span></label>
+    <label class="payment__option"><input type="radio" name="payment" value="cash" required> <span>Bayar di kasir</span></label>
+  </fieldset>`
 }

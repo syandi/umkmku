@@ -2,8 +2,9 @@ import { Elysia, t } from 'elysia'
 import type { AppContainer } from '../../container'
 import type { User } from '../../domain/user'
 import { AuthRequiredError, ValidationError } from '../../lib/errors'
+import { parseTableCount } from '../../domain/dining'
 import { dashboardPage, type DashboardFlash, type StoreFormValues } from '../../views/dashboard'
-import { qrPosterPage } from '../../views/qr'
+import { qrPosterPage, tablePostersPage } from '../../views/qr'
 import type { OpeningHoursFormInput } from '../../views/opening-hours'
 import type { CookieJar } from '../cookies'
 import { assertSameOrigin } from '../origin-guard'
@@ -87,6 +88,20 @@ export function dashboardRoutes({ auth, stores, config }: AppContainer, cookies:
       if (!store) return redirectResponse('/dashboard', { status: 303 })
       return htmlResponse(qrPosterPage(store, config.appUrl))
     })
+    .get(
+      '/meja',
+      async ({ user, query }) => {
+        const store = await stores.findByOwner(user.id)
+        if (!store) return redirectResponse('/dashboard', { status: 303 })
+        try {
+          return htmlResponse(tablePostersPage(store, config.appUrl, parseTableCount(query.jumlah)))
+        } catch (error) {
+          if (!(error instanceof ValidationError)) throw error
+          return render(user, { status: 400, flash: { type: 'error', message: error.userMessage } })
+        }
+      },
+      { query: t.Object({ jumlah: t.Optional(t.String()) }, { additionalProperties: true }) },
+    )
     .post('/spreadsheet', async ({ user }) => {
       await stores.recreateSpreadsheet(user)
       return redirectResponse('/dashboard?status=spreadsheet', { status: 303 })

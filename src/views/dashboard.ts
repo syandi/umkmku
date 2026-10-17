@@ -7,7 +7,7 @@ import { html, type SafeHtml } from '../lib/html'
 import type { CatalogStatus } from '../services/store-service'
 import { layout, siteHeader } from './layout'
 import { openingHoursForm, openStatusBadge, type OpeningHoursFormInput } from './opening-hours'
-import { qrCard } from './qr'
+import { qrCard, tableQrCard } from './qr'
 
 export interface DashboardFlash {
   readonly type: 'success' | 'error'
@@ -74,6 +74,8 @@ function storeOverview(store: Store, props: DashboardProps): SafeHtml {
 
     ${qrCard(store, props.appUrl)}
 
+    ${tableQrCard()}
+
     <section class="card">
       <h2>Produk</h2>
       ${catalogSection(props.catalog)}
@@ -99,7 +101,7 @@ function storeOverview(store: Store, props: DashboardProps): SafeHtml {
       <ol class="columns-help">
         ${PRODUCT_COLUMNS.map((column) => html`<li><strong>${column}</strong> — ${COLUMN_HELP[column]}</li>`)}
       </ol>
-      <p class="muted">Perubahan di spreadsheet tampil di toko dalam ±1 menit. Pesanan yang masuk tercatat di sheet <strong>Pesanan</strong>.</p>
+      <p class="muted">Perubahan di spreadsheet tampil di toko dalam ±1 menit. Pesanan yang masuk tercatat di sheet <strong>Pesanan</strong> (untuk pesanan meja: kolom Meja, Kode, Pembayaran, dan Status Bayar — ubah Status Bayar menjadi “Lunas” setelah bukti bayar diterima).</p>
     </section>`
 }
 

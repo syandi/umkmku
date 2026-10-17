@@ -63,3 +63,8 @@ export function storefrontPath(slug: string): string {
 export function storefrontUrl(appUrl: string, slug: string): string {
   return `${appUrl}${storefrontPath(slug)}`
 }
+
+/** URL QR untuk satu meja (mode warung): halaman toko dengan nomor meja terisi. */
+export function tableUrl(appUrl: string, slug: string, table: string): string {
+  return `${storefrontUrl(appUrl, slug)}?meja=${encodeURIComponent(table)}`
+}

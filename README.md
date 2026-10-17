@@ -179,3 +179,10 @@ Bila muncul `Code generation from strings disallowed for this context`, salah sa
 - Upload gambar produk ke R2 (saat ini memakai URL gambar publik).
 - Kategori produk, lebih dari satu toko per akun, tema/warna toko.
 - Integration test route (mis. `unstable_startWorker` dari Wrangler, dipanggil dari `bun test`).
+
+## Mode warung (pesan dari meja)
+
+- Dashboard → **QR per Meja**: isi jumlah meja lalu cetak. Setiap QR membuka `/s/:slug?meja=N`.
+- Dengan `?meja=N` form pesanan tidak menanyakan alamat, tetapi menampilkan pilihan **QRIS** atau **Bayar di kasir**.
+- Setelah memesan, pembeli melihat halaman konfirmasi berisi kode pesanan (mis. `A7K2`). Untuk QRIS, tombol membuka WhatsApp warung dengan pesan berisi kode & total; warung membalas dengan QRIS-nya dan pembeli mengirim bukti bayar di chat yang sama. QRIS **tidak** disimpan di aplikasi.
+- Sheet **Pesanan** mendapat kolom Meja, Kode, Pembayaran, Status Bayar (spreadsheet lama: tambahkan header G–J secara manual).

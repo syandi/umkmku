@@ -1,10 +1,14 @@
-import { storefrontPath, storefrontUrl, type Store } from '../domain/store'
+import { storefrontPath, storefrontUrl, tableUrl, type Store } from '../domain/store'
 import { html, type SafeHtml } from '../lib/html'
 import { layout } from './layout'
 import { scheduleList } from './opening-hours'
 
-function qrImagePath(store: Store, format: 'svg' | 'png', download = false): string {
-  return `${storefrontPath(store.slug)}/qr.${format}${download ? '?download=1' : ''}`
+function qrImagePath(store: Store, format: 'svg' | 'png', download = false, table?: string): string {
+  const query = new URLSearchParams()
+  if (download) query.set('download', '1')
+  if (table) query.set('meja', table)
+  const suffix = query.size ? `?${query}` : ''
+  return `${storefrontPath(store.slug)}/qr.${format}${suffix}`
 }
 
 /** Kartu QR di dashboard: pratinjau + unduh + cetak poster. */
@@ -47,4 +51,42 @@ export function qrPosterPage(store: Store, appUrl: string): SafeHtml {
       </article>
     </main>`,
   })
+}
+
+/** Poster QR untuk meja 1..count; setiap meja satu lembar (page-break saat dicetak). */
+export function tablePostersPage(store: Store, appUrl: string, count: number): SafeHtml {
+  const tables = Array.from({ length: count }, (_, index) => String(index + 1))
+  return layout({
+    title: `QR Meja · ${store.name}`,
+    scripts: ['/assets/print.js'],
+    body: html`<main class="poster">
+      <div class="poster__actions no-print">
+        <button type="button" class="btn btn--primary" data-print>Cetak ${count} meja</button>
+        <a class="btn btn--ghost" href="/dashboard">Kembali ke dashboard</a>
+      </div>
+      ${tables.map(
+        (table) => html`<article class="poster__sheet poster__sheet--table">
+          <p class="poster__eyebrow">${store.name}</p>
+          <h1 class="poster__title">Meja ${table}</h1>
+          <p class="poster__subtitle">Scan untuk lihat menu, pesan &amp; bayar</p>
+          <img class="poster__qr" src="${qrImagePath(store, 'svg', false, table)}" alt="QR code meja ${table}" loading="lazy">
+          <p class="poster__url">${tableUrl(appUrl, store.slug, table).replace(/^https?:\/\//, '')}</p>
+        </article>`,
+      )}
+    </main>`,
+  })
+}
+
+/** Kartu dashboard: cetak QR per meja (mode warung). */
+export function tableQrCard(): SafeHtml {
+  return html`<section class="card">
+    <h2>QR per Meja (Warung)</h2>
+    <p class="muted">Setiap meja mendapat QR sendiri. Pembeli scan, nomor meja terisi otomatis, lalu pesan dan bayar dari HP.</p>
+    <form method="get" action="/dashboard/meja" class="form form--inline">
+      <label>Jumlah meja
+        <input name="jumlah" type="number" inputmode="numeric" min="1" max="100" value="10" required>
+      </label>
+      <button class="btn btn--primary" type="submit">Cetak QR Meja</button>
+    </form>
+  </section>`
 }

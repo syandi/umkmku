@@ -217,3 +217,17 @@ select { width: 100%; font: inherit; color: var(--text); background: var(--bg); 
   .poster__sheet { border: 2px solid #111; max-width: none; width: 100%; }
   .poster__qr { width: 110mm; }
 }
+
+/* Mode warung: badge meja, pilihan pembayaran, struk */
+.table-badge { display: inline-block; margin: 4px 0 8px; padding: 4px 14px; border-radius: 999px; background: var(--primary); color: var(--primary-ink); font-weight: 700; }
+.payment { border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px 12px; margin: 0; display: grid; gap: 8px; }
+.payment legend { font-weight: 600; padding: 0 4px; }
+.payment__option { display: flex !important; align-items: flex-start; gap: 10px; }
+.payment__option input { width: 20px; height: 20px; min-height: 0; margin-top: 2px; }
+.receipt { max-width: 520px; padding-top: 24px; padding-bottom: 40px; }
+.receipt__code { font-size: 2.6rem; font-weight: 800; letter-spacing: 0.14em; margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+.receipt__steps { text-align: left; padding-left: 1.2rem; margin: 0 0 16px; }
+.receipt__hint { font-size: 0.85rem; margin: 12px 0 0; }
+.form--inline { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.poster__sheet--table { margin-bottom: 24px; }
+@media print { .poster__sheet--table { break-after: page; margin: 0; } }
